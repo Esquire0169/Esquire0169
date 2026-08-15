@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""
-Neofetch-style info card. Lines fade + slide in once, then freeze.
-
-    python scripts/make_info_card.py
-    STATIC=1 python scripts/make_info_card.py
-"""
+"""Wide neofetch card (860px) — premium whoami, no portrait."""
 from __future__ import annotations
 
 import html
@@ -28,30 +23,57 @@ from config import (
 OUT = os.path.join(HERE, "..", "info-card.svg")
 STATIC = bool(os.environ.get("STATIC"))
 
-# Display size 1:1 with the README <img width="490"> so glyphs stay crisp.
-CANVAS_W = 490
-CANVAS_H = 400
-PAD = 22
+CANVAS_W = 860
+CANVAS_H = 280
+PAD = 28
 TITLEBAR_H = 30
-LINE_H = 22
-BODY_X = PAD + 4
-BODY_TOP = TITLEBAR_H + 28
+COL2_X = 430
+LINE_H = 24
+BODY_TOP = TITLEBAR_H + 36
 
-ROWS = [
-    ("title", "esquire@github", None),
-    ("rule", "----------------------------", None),
-    ("kv", "Name / Имя", "Dmitrij Nikitin"),
-    ("kv", "Role / Роль", "Web & motion"),
-    ("kv", "Now / Сейчас", "Premium landings · e-com · UI"),
-    ("kv", "Stack", "TypeScript · Next.js · GSAP"),
-    ("kv", "Highlights", "Motion.lab · 680+ UI patterns"),
-    ("indent", None, "EasySite · Star Carpet · GIGANT"),
-    ("indent", None, "In Her Light · Гостиная Бочуля"),
-    ("kv", "Lang", "RU · EN"),
-    ("kv", "GitHub", "github.com/Esquire0169"),
-    ("blank", None, None),
-    ("swatch", None, None),
-]
+
+def line_group(inner: str, delay: float) -> str:
+    if STATIC:
+        return f"<g>{inner}</g>"
+    return (
+        f'<g opacity="1">'
+        f'<animate attributeName="opacity" from="0" to="1" begin="{delay:.2f}s" '
+        f'dur="0.28s" fill="freeze"/>'
+        f'<animateTransform attributeName="transform" type="translate" '
+        f'from="-8 0" to="0 0" begin="{delay:.2f}s" dur="0.28s" fill="freeze"/>'
+        f"{inner}</g>"
+    )
+
+
+def render_col(rows, x, start_delay):
+    parts = []
+    y = BODY_TOP
+    key_w = 78
+    for i, row in enumerate(rows):
+        kind, a = row[0], row[1]
+        b = row[2] if len(row) > 2 else None
+        delay = start_delay + i * 0.08
+        if kind == "title":
+            inner = (
+                f'<text x="{x}" y="{y}" fill="{ACCENT}" font-size="18" font-weight="700">'
+                f"{html.escape(a)}</text>"
+            )
+        elif kind == "rule":
+            inner = f'<text x="{x}" y="{y}" fill="{FRAME}" font-size="13">{a}</text>'
+        elif kind == "kv":
+            inner = (
+                f'<text x="{x}" y="{y}" fill="{KEY}" font-size="13">{html.escape(a)}</text>'
+                f'<text x="{x + key_w}" y="{y}" fill="{INK}" font-size="13">'
+                f"{html.escape(b)}</text>"
+            )
+        else:
+            inner = (
+                f'<text x="{x + key_w}" y="{y}" fill="{INK}" font-size="13">'
+                f"{html.escape(a)}</text>"
+            )
+        parts.append(line_group(inner, delay))
+        y += LINE_H
+    return parts
 
 
 def emit() -> str:
@@ -74,72 +96,34 @@ def emit() -> str:
         )
     parts.append(
         f'<text x="{CANVAS_W / 2}" y="{TITLEBAR_H / 2 + 4}" fill="{TITLE_TEXT}" font-size="12" '
-        f'text-anchor="middle">{PROMPT_HOST}: ~$ neofetch</text>'
+        f'text-anchor="middle">{PROMPT_HOST}: ~$ whoami</text>'
     )
 
-    y = BODY_TOP
-    line_i = 0
-    key_w = 132
-    for kind, a, b in ROWS:
-        delay = 0.18 + line_i * 0.11
-        inner = []
-        if kind == "title":
-            inner.append(
-                f'<text x="{BODY_X}" y="{y}" fill="{ACCENT}" font-size="16" font-weight="700">'
-                f"{html.escape(a)}</text>"
-            )
-        elif kind == "rule":
-            inner.append(
-                f'<text x="{BODY_X}" y="{y}" fill="{FRAME}" font-size="13">{a}</text>'
-            )
-        elif kind == "kv":
-            inner.append(
-                f'<text x="{BODY_X}" y="{y}" fill="{KEY}" font-size="13">{html.escape(a)}</text>'
-            )
-            inner.append(
-                f'<text x="{BODY_X + key_w}" y="{y}" fill="{INK}" font-size="13">'
-                f"{html.escape(b)}</text>"
-            )
-        elif kind == "indent":
-            inner.append(
-                f'<text x="{BODY_X + key_w}" y="{y}" fill="{INK}" font-size="13">'
-                f"{html.escape(b)}</text>"
-            )
-        elif kind == "swatch":
-            colors = ["#ff5f56", "#ffbd2e", "#27c93f", KEY, ACCENT, "#a371f7", INK]
-            x = BODY_X
-            for c in colors:
-                inner.append(
-                    f'<rect x="{x}" y="{y - 12}" width="18" height="14" rx="2" fill="{c}"/>'
-                )
-                x += 22
-        elif kind == "blank":
-            y += LINE_H * 0.45
-            continue
+    left_kv = [
+        ("title", "esquire@github"),
+        ("rule", "─────────────────────────"),
+        ("kv", "Name", "Dmitrij Nikitin"),
+        ("kv", "Role", "Web & motion"),
+        ("kv", "Now", "Premium landings · e-com · UI"),
+        ("kv", "Lang", "RU · EN"),
+    ]
+    right_kv = [
+        ("kv", "Stack", "TypeScript · Next.js · GSAP"),
+        ("kv", "Focus", "Design systems that ship"),
+        ("kv", "Work", "Motion.lab · 680+ UI patterns"),
+        ("plain", "EasySite · Star Carpet · GIGANT"),
+        ("plain", "In Her Light · Гостиная Бочуля"),
+        ("kv", "Status", "shipping"),
+    ]
+    parts.extend(render_col(left_kv, PAD, 0.12))
+    parts.extend(render_col(right_kv, COL2_X, 0.18))
 
-        body = "".join(inner)
-        if STATIC:
-            parts.append(f"<g>{body}</g>")
-        else:
-            parts.append(
-                f'<g opacity="1">'
-                f'<animate attributeName="opacity" from="0" to="1" begin="{delay:.2f}s" '
-                f'dur="0.32s" fill="freeze"/>'
-                f'<animateTransform attributeName="transform" type="translate" '
-                f'from="-10 0" to="0 0" begin="{delay:.2f}s" dur="0.32s" fill="freeze"/>'
-                f"{body}</g>"
-            )
-        y += LINE_H
-        line_i += 1
-
-    # status
-    status_y = CANVAS_H - 18
     parts.append(
-        f'<line x1="0" y1="{CANVAS_H - 30}" x2="{CANVAS_W}" y2="{CANVAS_H - 30}" stroke="{FRAME}"/>'
+        f'<line x1="0" y1="{CANVAS_H - 28}" x2="{CANVAS_W}" y2="{CANVAS_H - 28}" stroke="{FRAME}"/>'
     )
     parts.append(
-        f'<text x="{PAD}" y="{status_y}" fill="{MUTED}" font-size="11">'
-        f'{PROMPT_HOST}:~$ echo $STATUS  <tspan fill="{ACCENT}">shipping</tspan></text>'
+        f'<text x="{PAD}" y="{CANVAS_H - 11}" fill="{MUTED}" font-size="11">'
+        f'{PROMPT_HOST}:~$ echo $STATUS  <tspan fill="{ACCENT}">available for work</tspan></text>'
     )
     parts.append("</svg>")
     return "".join(parts)
