@@ -14,7 +14,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from config import BG, BG2, DISPLAY_NAME, FRAME, INK, PROMPT_HOST, TITLE_TEXT, USERNAME
 
-OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "..", "ascii-portrait.svg")
+OUT = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "..", "esquire-banner.svg")
 
 HANDLE = USERNAME.lower()  # esquire0169
 CANVAS_W = 860
@@ -29,7 +29,6 @@ FONT_SIZE = 72
 CELL_W = 560
 GAP = 80
 UNIT = CELL_W + GAP
-SWEEP = CANVAS_W + 240
 
 
 def emit() -> str:
@@ -54,14 +53,18 @@ def emit() -> str:
             f'<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">'
             f'<stop offset="0" stop-color="{BG2}"/><stop offset="1" stop-color="{BG}"/>'
             "</linearGradient>",
-            f'<linearGradient id="ink" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="{CANVAS_W}" y2="0">'
-            '<stop offset="0%" stop-color="#22d3ee"/>'
-            '<stop offset="25%" stop-color="#a371f7"/>'
-            '<stop offset="50%" stop-color="#39d353"/>'
-            '<stop offset="75%" stop-color="#22d3ee"/>'
-            '<stop offset="100%" stop-color="#a371f7"/>'
-            f'<animateTransform attributeName="gradientTransform" type="translate" '
-            f'from="-{SWEEP} 0" to="{SWEEP} 0" dur="5s" repeatCount="indefinite"/>'
+            '<linearGradient id="ink" x1="-100%" y1="0" x2="0%" y2="0">'
+            '<stop offset="0%" stop-color="#22d3ee">'
+            '<animate attributeName="stop-color" values="#22d3ee;#a371f7;#39d353;#22d3ee" dur="3s" repeatCount="indefinite"/>'
+            "</stop>"
+            '<stop offset="50%" stop-color="#a371f7">'
+            '<animate attributeName="stop-color" values="#a371f7;#39d353;#22d3ee;#a371f7" dur="3s" repeatCount="indefinite"/>'
+            "</stop>"
+            '<stop offset="100%" stop-color="#39d353">'
+            '<animate attributeName="stop-color" values="#39d353;#22d3ee;#a371f7;#39d353" dur="3s" repeatCount="indefinite"/>'
+            "</stop>"
+            '<animate attributeName="x1" values="-100%;100%" dur="5s" repeatCount="indefinite"/>'
+            '<animate attributeName="x2" values="0%;200%" dur="5s" repeatCount="indefinite"/>'
             "</linearGradient>",
             f'<clipPath id="stage"><rect x="0" y="{TITLEBAR_H}" width="{CANVAS_W}" height="{STAGE_H}"/></clipPath>',
             "</defs>",
