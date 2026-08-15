@@ -1,21 +1,23 @@
 #!/usr/bin/env python3
 """
-Stylized geometric ASCII portrait that types itself in, then freezes.
+ASCII portrait that types itself in, then freezes.
 
-Default: isometric cubes of the GitHub identicon pattern (no photo).
-Optional: pass a prepped grayscale image as argv[1] to use a real portrait later.
+Default: Lambert-shaded 3D bust (head / neck / shoulders) — the look from
+Avi's terminal profile, without needing a photo.
+Optional: pass a prepped grayscale image as argv[1] for a real portrait later.
 
     python scripts/make_ascii_svg.py
     python scripts/make_ascii_svg.py source-prepped.png ascii-portrait.svg
-    STATIC=1 python scripts/make_ascii_svg.py   # frozen frame for Quick Look
+    STATIC=1 python scripts/make_ascii_svg.py
 """
 from __future__ import annotations
 
 import html
+import math
 import os
 import sys
 
-from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont
+from PIL import Image, ImageEnhance
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -29,8 +31,8 @@ ROWS = 52
 CELL_W = 8
 CELL_H = 15
 RAMP = " .`:-=+*cs#%@"
-WHITE_FLOOR = 0.82
-GAMMA = 1.12
+WHITE_FLOOR = 0.88
+GAMMA = 1.05
 CONTRAST = 1.12
 
 PAD = 20
@@ -41,78 +43,61 @@ ART_H = ROWS * CELL_H
 CANVAS_W = ART_W + PAD * 2
 CANVAS_H = TITLEBAR_H + ART_H + STATUS_H + PAD
 
-ROW_DUR = 0.10
-STAGGER = 0.10
+ROW_DUR = 0.09
+STAGGER = 0.09
 STATIC = bool(os.environ.get("STATIC"))
 
-# Horizontally symmetric 5x5 — the Esquire0169 identicon.
-PATTERN = [
-    [1, 0, 0, 0, 1],
-    [0, 0, 1, 0, 0],
-    [0, 1, 0, 1, 0],
-    [0, 0, 1, 0, 0],
-    [1, 0, 0, 0, 1],
+# (cx, cy, cz, rx, ry, rz) — y up, z toward camera
+SOLIDS = [
+    (0.00, 0.28, 0.00, 0.44, 0.54, 0.46),   # head
+    (-0.43, 0.26, 0.02, 0.09, 0.16, 0.11),  # ear L
+    (0.43, 0.26, 0.02, 0.09, 0.16, 0.11),   # ear R
+    (0.00, -0.22, 0.06, 0.17, 0.24, 0.16),  # neck
+    (0.00, -0.58, 0.10, 0.84, 0.28, 0.34),  # shoulders
 ]
 
 
-def _iso_pt(i: float, j: float, k: float, origin, cw: float, ch: float):
-    x = (i - j) * cw / 2.0 + origin[0]
-    y = (i + j) * ch / 4.0 - k * ch / 2.0 + origin[1]
-    return (x, y)
-
-
-def draw_geometric_portrait(width: int, height: int) -> Image.Image:
-    """Isometric cubes of the identicon, on white (ASCII maps white → blank)."""
+def draw_bust(width: int, height: int) -> Image.Image:
+    """Orthographic ellipsoid bust, white bg → ASCII spaces."""
     img = Image.new("L", (width, height), 255)
-    d = ImageDraw.Draw(img)
-    n = 5
-    cw, ch = 132.0, 76.0
-    origin = (width / 2.0, height * 0.32)
+    px = img.load()
+    lx, ly, lz = -0.35, 0.50, 0.79
+    ln = math.sqrt(lx * lx + ly * ly + lz * lz)
+    lx, ly, lz = lx / ln, ly / ln, lz / ln
 
-    def cube(i, j, k=0.0, h=1.0):
-        t = _iso_pt(i, j, k + h, origin, cw, ch)
-        r = _iso_pt(i + 1, j, k + h, origin, cw, ch)
-        b = _iso_pt(i + 1, j + 1, k + h, origin, cw, ch)
-        l = _iso_pt(i, j + 1, k + h, origin, cw, ch)
-        br = _iso_pt(i + 1, j, k, origin, cw, ch)
-        bb = _iso_pt(i + 1, j + 1, k, origin, cw, ch)
-        bl = _iso_pt(i, j + 1, k, origin, cw, ch)
-        d.polygon([r, b, bb, br], fill=92)    # right
-        d.polygon([l, b, bb, bl], fill=36)    # left (darkest)
-        d.polygon([t, r, b, l], fill=150)     # top (lightest)
-        d.line([t, r, b, l, t], fill=18, width=2)
-        d.line([r, br], fill=18, width=2)
-        d.line([b, bb], fill=18, width=2)
-        d.line([l, bl], fill=18, width=2)
-
-    for s in range(2 * n):
-        for i in range(n):
-            j = s - i
-            if 0 <= j < n and PATTERN[j][i]:
-                cube(i - 2.0, j - 2.0, 0.0, 1.2)
-
-    try:
-        font = ImageFont.truetype("/System/Library/Fonts/Supplemental/Arial Bold.ttf", 92)
-    except OSError:
-        try:
-            font = ImageFont.truetype("/System/Library/Fonts/Menlo.ttc", 84)
-        except OSError:
-            font = ImageFont.load_default()
-    label = "ESQUIRE"
-    bbox = d.textbbox((0, 0), label, font=font)
-    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-    d.text(((width - tw) / 2.0, height * 0.70), label, fill=28, font=font)
-
-    return img.filter(ImageFilter.GaussianBlur(radius=0.45))
+    for j in range(height):
+        for i in range(width):
+            x = (i / (width - 1) - 0.5) * 2.05
+            y = -((j / (height - 1) - 0.48) * 2.15)
+            best_z = None
+            best_n = None
+            for cx, cy, cz, rx, ry, rz in SOLIDS:
+                a = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2
+                if a >= 1.0:
+                    continue
+                dz = rz * math.sqrt(1.0 - a)
+                z_front = cz + dz
+                if best_z is None or z_front > best_z:
+                    best_z = z_front
+                    nx = (x - cx) / (rx * rx)
+                    ny = (y - cy) / (ry * ry)
+                    nz = (z_front - cz) / (rz * rz)
+                    nn = math.sqrt(nx * nx + ny * ny + nz * nz) or 1.0
+                    best_n = (nx / nn, ny / nn, nz / nn)
+            if best_n is None:
+                continue
+            shade = max(0.0, best_n[0] * lx + best_n[1] * ly + best_n[2] * lz)
+            shade = 0.12 + 0.88 * shade
+            lum = int(255 * (1.0 - shade * 0.94))
+            px[i, j] = lum
+    return img
 
 
 def load_source() -> Image.Image:
     if PHOTO:
         im = Image.open(PHOTO).convert("L")
-        im = ImageEnhance.Contrast(im).enhance(CONTRAST)
-        return im
-    # Render large, then the ASCII sampler downscales with LANCZOS.
-    return draw_geometric_portrait(920, 480)
+        return ImageEnhance.Contrast(im).enhance(CONTRAST)
+    return draw_bust(736, 416)
 
 
 def to_rows(im: Image.Image) -> list[str]:
@@ -135,33 +120,26 @@ def to_rows(im: Image.Image) -> list[str]:
 
 
 def emit(rows_txt: list[str]) -> str:
-    parts = []
-    parts.append(
+    parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{CANVAS_W}" height="{CANVAS_H}" '
         f'viewBox="0 0 {CANVAS_W} {CANVAS_H}" font-family="ui-monospace, SFMono-Regular, '
-        f'Menlo, Consolas, monospace">'
-    )
-    parts.append(
+        f'Menlo, Consolas, monospace">',
         "<defs>"
         f'<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">'
         f'<stop offset="0" stop-color="{BG2}"/><stop offset="1" stop-color="{BG}"/>'
-        "</linearGradient></defs>"
-    )
-    parts.append(f'<rect width="{CANVAS_W}" height="{CANVAS_H}" rx="12" fill="url(#bg)"/>')
-    parts.append(
+        "</linearGradient></defs>",
+        f'<rect width="{CANVAS_W}" height="{CANVAS_H}" rx="12" fill="url(#bg)"/>',
         f'<rect x="0.5" y="0.5" width="{CANVAS_W - 1}" height="{CANVAS_H - 1}" rx="12" '
-        f'fill="none" stroke="{FRAME}" stroke-width="1"/>'
-    )
-    parts.append(
-        f'<line x1="0" y1="{TITLEBAR_H}" x2="{CANVAS_W}" y2="{TITLEBAR_H}" stroke="{FRAME}"/>'
-    )
+        f'fill="none" stroke="{FRAME}" stroke-width="1"/>',
+        f'<line x1="0" y1="{TITLEBAR_H}" x2="{CANVAS_W}" y2="{TITLEBAR_H}" stroke="{FRAME}"/>',
+    ]
     for i, dotcol in enumerate(["#ff5f56", "#ffbd2e", "#27c93f"]):
         parts.append(
             f'<circle cx="{PAD + i * 16}" cy="{TITLEBAR_H / 2}" r="5" fill="{dotcol}"/>'
         )
     parts.append(
         f'<text x="{CANVAS_W / 2}" y="{TITLEBAR_H / 2 + 4}" fill="{TITLE_TEXT}" font-size="12" '
-        f'text-anchor="middle">{PROMPT_HOST}: ~$ ./portrait.sh --geometry</text>'
+        f'text-anchor="middle">{PROMPT_HOST}: ~$ ./portrait.sh</text>'
     )
 
     art_top = TITLEBAR_H + PAD * 0.35

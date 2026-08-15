@@ -122,7 +122,7 @@ def emit() -> str:
             parts.append(f"<g>{body}</g>")
         else:
             parts.append(
-                f'<g opacity="0">'
+                f'<g opacity="1">'
                 f'<animate attributeName="opacity" from="0" to="1" begin="{delay:.2f}s" '
                 f'dur="0.32s" fill="freeze"/>'
                 f'<animateTransform attributeName="transform" type="translate" '
