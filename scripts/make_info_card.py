@@ -12,11 +12,13 @@ from config import (
     ACCENT,
     BG,
     BG2,
+    DISPLAY_NAME,
     FRAME,
     INK,
     KEY,
     MUTED,
     PROMPT_HOST,
+    SITE,
     TITLE_TEXT,
 )
 
@@ -100,20 +102,20 @@ def emit() -> str:
     )
 
     left_kv = [
-        ("title", "esquire@github"),
+        ("title", SITE),
         ("rule", "─────────────────────────"),
-        ("kv", "Name", "Dmitrij Nikitin"),
-        ("kv", "Role", "Web & motion"),
-        ("kv", "Now", "Premium landings · e-com · UI"),
+        ("kv", "Name", DISPLAY_NAME),
+        ("kv", "Role", "Digital product studio"),
+        ("kv", "Now", "Landings · e-com · motion"),
         ("kv", "Lang", "RU · EN"),
     ]
     right_kv = [
         ("kv", "Stack", "TypeScript · Next.js · GSAP"),
-        ("kv", "Focus", "Design systems that ship"),
-        ("kv", "Work", "Motion.lab · 680+ UI patterns"),
-        ("plain", "EasySite · Star Carpet · GIGANT"),
-        ("plain", "In Her Light · Гостиная Бочуля"),
-        ("kv", "Status", "shipping"),
+        ("kv", "Focus", "Built for what's next"),
+        ("kv", "Work", "Motion.lab · EasySite · GIGANT"),
+        ("plain", "Star Carpet · In Her Light"),
+        ("plain", "Гостиная Бочуля · Пермчермет"),
+        ("kv", "Est", "2026"),
     ]
     parts.extend(render_col(left_kv, PAD, 0.12))
     parts.extend(render_col(right_kv, COL2_X, 0.18))
@@ -123,7 +125,7 @@ def emit() -> str:
     )
     parts.append(
         f'<text x="{PAD}" y="{CANVAS_H - 11}" fill="{MUTED}" font-size="11">'
-        f'{PROMPT_HOST}:~$ echo $STATUS  <tspan fill="{ACCENT}">available for work</tspan></text>'
+        f'{PROMPT_HOST}:~$ echo $STATUS  <tspan fill="{ACCENT}">always intentional</tspan></text>'
     )
     parts.append("</svg>")
     return "".join(parts)

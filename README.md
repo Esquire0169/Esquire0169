@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./ascii-portrait.svg" width="860" alt="ASCII portrait — esquire0169" />
+<img src="./ascii-portrait.svg" width="860" alt="Plix Group — ASCII mark" />
 
 <br>
 <br>

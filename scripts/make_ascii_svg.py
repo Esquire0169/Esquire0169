@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-ASCII portrait from source-photo.png. Glyphs are the handle esquire0169;
-a looping gradient banner of the same name sits under the face.
+ASCII mark from the Plix lockup. Glyphs are "plix"; a looping
+"Plix Group" gradient banner sits under the art.
 
     python scripts/make_ascii_svg.py
     python scripts/make_ascii_svg.py path/to/photo.png ascii-portrait.svg
@@ -16,14 +16,14 @@ from PIL import Image, ImageEnhance, ImageFilter, ImageOps
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from config import BG, BG2, DISPLAY_NAME, FRAME, INK, PROMPT_HOST, TITLE_TEXT, USERNAME
+from config import BG, BG2, DISPLAY_NAME, FRAME, INK, PROMPT_HOST, TITLE_TEXT
 
 PHOTO = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "..", "source-photo.png")
 OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, "..", "ascii-portrait.svg")
 
-HANDLE = USERNAME.lower()  # esquire0169
+HANDLE = "plix"
+BANNER = "Plix Group"
 COLS = 102
-ROWS = 48
 CELL_W = 8
 CELL_H = 15
 PAD = 20
@@ -31,34 +31,40 @@ TITLEBAR_H = 30
 BANNER_H = 56
 STATUS_H = 34
 
-# Thin → dense, using only letters/digits from the handle.
-RAMP = " i1rseu069q"
-BG_CUT = 0.07
-GAMMA = 0.72
+# Thin → dense, only letters from the mark.
+RAMP = " ilxpg"
+BG_CUT = 0.28
+GAMMA = 0.78
 
 
 def load_photo(path: str) -> Image.Image:
     im = Image.open(path).convert("L")
-    # Square crop, slightly tight on the head.
     w, h = im.size
-    side = min(w, h)
-    left = (w - side) // 2
-    top = max(0, (h - side) // 2 - side // 18)
-    im = im.crop((left, top, left + side, top + side))
-    im = im.resize((side * 4, side * 4), Image.LANCZOS)
-    im = ImageOps.autocontrast(im, cutoff=1)
-    im = ImageEnhance.Contrast(im).enhance(1.55)
-    im = ImageEnhance.Brightness(im).enhance(1.12)
-    im = im.filter(ImageFilter.UnsharpMask(radius=1.6, percent=160, threshold=2))
+    # Wordmark only — drop the tiny header/footer lines.
+    im = im.crop((int(w * 0.04), int(h * 0.20), int(w * 0.96), int(h * 0.62)))
+    w, h = im.size
+    im = im.resize((w * 2, h * 2), Image.LANCZOS)
+    im = ImageOps.autocontrast(im, cutoff=3)
+    im = ImageEnhance.Contrast(im).enhance(1.85)
+    im = ImageEnhance.Brightness(im).enhance(1.04)
+    im = im.filter(ImageFilter.UnsharpMask(radius=1.2, percent=170, threshold=1))
     return im
 
 
+def row_count(im: Image.Image) -> int:
+    aspect = im.width / max(1, im.height)
+    visual = aspect * CELL_H / CELL_W
+    rows = int(round(COLS / visual))
+    return max(22, min(40, rows))
+
+
 def to_rows(im: Image.Image) -> list[str]:
-    im = im.resize((COLS, ROWS), Image.LANCZOS)
+    rows_n = row_count(im)
+    im = im.resize((COLS, rows_n), Image.LANCZOS)
     px = im.load()
     rows = []
     n_ramp = len(RAMP) - 1
-    for y in range(ROWS):
+    for y in range(rows_n):
         chars = []
         for x in range(COLS):
             lum = px[x, y] / 255.0
@@ -69,13 +75,11 @@ def to_rows(im: Image.Image) -> list[str]:
             t = pow(max(0.0, min(1.0, t)), GAMMA)
             idx = int(t * n_ramp + 0.5)
             idx = max(1, min(n_ramp, idx))
-            # Prefer the repeating handle when the cell is solid enough;
-            # fall back to a lighter ramp char in the midtones.
             handle_ch = HANDLE[x % len(HANDLE)]
             handle_w = RAMP.find(handle_ch)
             if handle_w < 0:
                 handle_w = idx
-            if idx >= max(3, handle_w):
+            if idx >= max(2, handle_w):
                 chars.append(handle_ch)
             else:
                 chars.append(RAMP[idx])
@@ -84,6 +88,10 @@ def to_rows(im: Image.Image) -> list[str]:
         rows.pop(0)
     while rows and rows[-1].strip() == "":
         rows.pop()
+    while rows and len(rows[-1].replace(" ", "")) < 8:
+        rows.pop()
+    while rows and len(rows[0].replace(" ", "")) < 8:
+        rows.pop(0)
     pad = " " * COLS
     return [pad, *rows, pad]
 
@@ -115,9 +123,9 @@ def emit(rows_txt: list[str]) -> str:
     font_size = CELL_H * 0.86
     art_top = TITLEBAR_H + 4
     banner_y = TITLEBAR_H + art_h
-    word = html.escape(HANDLE)
-    cell_w = 420
-    gap = 72
+    word = html.escape(BANNER)
+    cell_w = 380
+    gap = 80
     unit = cell_w + gap
 
     parts = [
@@ -142,7 +150,7 @@ def emit(rows_txt: list[str]) -> str:
         )
     parts.append(
         f'<text x="{canvas_w / 2}" y="{TITLEBAR_H / 2 + 4}" fill="{TITLE_TEXT}" font-size="12" '
-        f'text-anchor="middle">{PROMPT_HOST}: ~$ ./portrait.sh --loop</text>'
+        f'text-anchor="middle">{PROMPT_HOST}: ~$ ./plix.sh --loop</text>'
     )
 
     for ry, line in enumerate(rows_txt):
@@ -165,7 +173,7 @@ def emit(rows_txt: list[str]) -> str:
     for i in range(4):
         parts.append(
             f'<text xml:space="preserve" x="{PAD + i * unit}" y="{by:.1f}" fill="url(#ink)" '
-            f'font-size="36" font-weight="700" letter-spacing="6" '
+            f'font-size="36" font-weight="700" letter-spacing="4" '
             f'textLength="{cell_w}" lengthAdjust="spacing">{word}</text>'
         )
     parts.append("</g></g>")

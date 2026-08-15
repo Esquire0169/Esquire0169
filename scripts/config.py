@@ -1,9 +1,10 @@
 """Shared identity for every generated SVG."""
 
 USERNAME = "Esquire0169"
-PROMPT_HOST = "esquire@github"
-DISPLAY_NAME = "Dmitrij Nikitin"
+PROMPT_HOST = "plix@github"
+DISPLAY_NAME = "Plix Group"
 GITHUB_URL = "https://github.com/Esquire0169"
+SITE = "plix.group"
 
 # GitHub-dark chrome, cyan accent (motion / studio, not default blue).
 BG = "#0d1117"
