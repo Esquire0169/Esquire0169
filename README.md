@@ -1,8 +1,8 @@
 <div align="center">
 
-## Dmitrij Nikitin
-**Web & motion** · премиальные лендинги, e-com и UI-анимация
+<img src="./ascii-portrait.svg" width="860" alt="ASCII portrait — looping gradient" />
 
+<br>
 <br>
 
 <img src="./info-card.svg" width="860" alt="whoami — neofetch card" />

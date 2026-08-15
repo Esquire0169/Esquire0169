@@ -13,11 +13,10 @@ Optional: pass a prepped grayscale image as argv[1] for a real portrait later.
 from __future__ import annotations
 
 import html
-import math
 import os
 import sys
 
-from PIL import Image, ImageEnhance
+from PIL import Image, ImageEnhance, ImageOps
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -47,57 +46,61 @@ ROW_DUR = 0.09
 STAGGER = 0.09
 STATIC = bool(os.environ.get("STATIC"))
 
-# (cx, cy, cz, rx, ry, rz) — y up, z toward camera
-SOLIDS = [
-    (0.00, 0.28, 0.00, 0.44, 0.54, 0.46),   # head
-    (-0.43, 0.26, 0.02, 0.09, 0.16, 0.11),  # ear L
-    (0.43, 0.26, 0.02, 0.09, 0.16, 0.11),   # ear R
-    (0.00, -0.22, 0.06, 0.17, 0.24, 0.16),  # neck
-    (0.00, -0.58, 0.10, 0.84, 0.28, 0.34),  # shoulders
+
+# Horizontally symmetric 5x5 — same mark as the avatar.
+PATTERN = [
+    [1, 0, 0, 0, 1],
+    [0, 0, 1, 0, 0],
+    [0, 1, 1, 1, 0],
+    [0, 0, 1, 0, 0],
+    [1, 0, 0, 0, 1],
 ]
 
 
-def draw_bust(width: int, height: int) -> Image.Image:
-    """Orthographic ellipsoid bust, white bg → ASCII spaces."""
-    img = Image.new("L", (width, height), 255)
-    px = img.load()
-    lx, ly, lz = -0.35, 0.50, 0.79
-    ln = math.sqrt(lx * lx + ly * ly + lz * lz)
-    lx, ly, lz = lx / ln, ly / ln, lz / ln
+def _iso_pt(i: float, j: float, k: float, origin, cw: float, ch: float):
+    x = (i - j) * cw / 2.0 + origin[0]
+    y = (i + j) * ch / 4.0 - k * ch / 2.0 + origin[1]
+    return (x, y)
 
-    for j in range(height):
-        for i in range(width):
-            x = (i / (width - 1) - 0.5) * 2.05
-            y = -((j / (height - 1) - 0.48) * 2.15)
-            best_z = None
-            best_n = None
-            for cx, cy, cz, rx, ry, rz in SOLIDS:
-                a = ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2
-                if a >= 1.0:
-                    continue
-                dz = rz * math.sqrt(1.0 - a)
-                z_front = cz + dz
-                if best_z is None or z_front > best_z:
-                    best_z = z_front
-                    nx = (x - cx) / (rx * rx)
-                    ny = (y - cy) / (ry * ry)
-                    nz = (z_front - cz) / (rz * rz)
-                    nn = math.sqrt(nx * nx + ny * ny + nz * nz) or 1.0
-                    best_n = (nx / nn, ny / nn, nz / nn)
-            if best_n is None:
-                continue
-            shade = max(0.0, best_n[0] * lx + best_n[1] * ly + best_n[2] * lz)
-            shade = 0.12 + 0.88 * shade
-            lum = int(255 * (1.0 - shade * 0.94))
-            px[i, j] = lum
-    return img
+
+def draw_cubes(width: int, height: int) -> Image.Image:
+    from PIL import ImageDraw, ImageFilter
+
+    img = Image.new("L", (width, height), 255)
+    d = ImageDraw.Draw(img)
+    n = 5
+    cw, ch = 128.0, 74.0
+    origin = (width / 2.0, height * 0.36)
+
+    def cube(i, j, k=0.0, h=1.15):
+        t = _iso_pt(i, j, k + h, origin, cw, ch)
+        r = _iso_pt(i + 1, j, k + h, origin, cw, ch)
+        b = _iso_pt(i + 1, j + 1, k + h, origin, cw, ch)
+        l = _iso_pt(i, j + 1, k + h, origin, cw, ch)
+        br = _iso_pt(i + 1, j, k, origin, cw, ch)
+        bb = _iso_pt(i + 1, j + 1, k, origin, cw, ch)
+        bl = _iso_pt(i, j + 1, k, origin, cw, ch)
+        d.polygon([r, b, bb, br], fill=92)
+        d.polygon([l, b, bb, bl], fill=36)
+        d.polygon([t, r, b, l], fill=150)
+        d.line([t, r, b, l, t], fill=18, width=2)
+        d.line([r, br], fill=18, width=2)
+        d.line([b, bb], fill=18, width=2)
+        d.line([l, bl], fill=18, width=2)
+
+    for s in range(2 * n):
+        for i in range(n):
+            j = s - i
+            if 0 <= j < n and PATTERN[j][i]:
+                cube(i - 2.0, j - 2.0)
+    return img.filter(ImageFilter.GaussianBlur(radius=0.4))
 
 
 def load_source() -> Image.Image:
     if PHOTO:
         im = Image.open(PHOTO).convert("L")
         return ImageEnhance.Contrast(im).enhance(CONTRAST)
-    return draw_bust(736, 416)
+    return draw_cubes(920, 520)
 
 
 def to_rows(im: Image.Image) -> list[str]:
@@ -120,6 +123,11 @@ def to_rows(im: Image.Image) -> list[str]:
 
 
 def emit(rows_txt: list[str]) -> str:
+    n = len(rows_txt)
+    type_span = (n - 1) * STAGGER + ROW_DUR
+    cycle = type_span + 2.8  # hold, then loop forever
+    sweep = ART_W + 240
+
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{CANVAS_W}" height="{CANVAS_H}" '
         f'viewBox="0 0 {CANVAS_W} {CANVAS_H}" font-family="ui-monospace, SFMono-Regular, '
@@ -127,7 +135,16 @@ def emit(rows_txt: list[str]) -> str:
         "<defs>"
         f'<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">'
         f'<stop offset="0" stop-color="{BG2}"/><stop offset="1" stop-color="{BG}"/>'
-        "</linearGradient></defs>",
+        "</linearGradient>"
+        f'<linearGradient id="ink" gradientUnits="userSpaceOnUse" x1="{PAD}" y1="0" x2="{PAD + 280}" y2="0">'
+        '<stop offset="0%" stop-color="#22d3ee"/>'
+        '<stop offset="35%" stop-color="#a371f7"/>'
+        '<stop offset="70%" stop-color="#39d353"/>'
+        '<stop offset="100%" stop-color="#22d3ee"/>'
+        f'<animateTransform attributeName="gradientTransform" type="translate" '
+        f'from="-{sweep} 0" to="{sweep} 0" dur="4.5s" repeatCount="indefinite"/>'
+        "</linearGradient>"
+        "</defs>",
         f'<rect width="{CANVAS_W}" height="{CANVAS_H}" rx="12" fill="url(#bg)"/>',
         f'<rect x="0.5" y="0.5" width="{CANVAS_W - 1}" height="{CANVAS_H - 1}" rx="12" '
         f'fill="none" stroke="{FRAME}" stroke-width="1"/>',
@@ -139,18 +156,22 @@ def emit(rows_txt: list[str]) -> str:
         )
     parts.append(
         f'<text x="{CANVAS_W / 2}" y="{TITLEBAR_H / 2 + 4}" fill="{TITLE_TEXT}" font-size="12" '
-        f'text-anchor="middle">{PROMPT_HOST}: ~$ ./portrait.sh</text>'
+        f'text-anchor="middle">{PROMPT_HOST}: ~$ ./portrait.sh --loop</text>'
     )
 
     art_top = TITLEBAR_H + PAD * 0.35
     font_size = CELL_H * 0.86
+    fill = "url(#ink)"
     for ry, line in enumerate(rows_txt):
         y = art_top + ry * CELL_H + CELL_H * 0.74
         row_y = art_top + ry * CELL_H
         delay = ry * STAGGER
+        t0 = max(0.002, delay / cycle)
+        t1 = min(0.84, max(t0 + 0.004, (delay + ROW_DUR) / cycle))
+        t_hold = 0.88
         safe = html.escape(line)
         text = (
-            f'<text xml:space="preserve" x="{PAD}" y="{y:.1f}" fill="{INK}" '
+            f'<text xml:space="preserve" x="{PAD}" y="{y:.1f}" fill="{fill}" '
             f'font-size="{font_size:.1f}" textLength="{ART_W}" lengthAdjust="spacing">'
             f"{safe}</text>"
         )
@@ -158,17 +179,21 @@ def emit(rows_txt: list[str]) -> str:
             parts.append(text)
             continue
         parts.append(
-            f'<clipPath id="r{ry}"><rect x="{PAD}" y="{row_y:.1f}" height="{CELL_H}" width="0">'
-            f'<animate attributeName="width" from="0" to="{ART_W}" begin="{delay:.3f}s" '
-            f'dur="{ROW_DUR:.2f}s" fill="freeze"/></rect></clipPath>'
+            f'<clipPath id="r{ry}">'
+            f'<rect x="{PAD}" y="{row_y:.1f}" height="{CELL_H}" width="0">'
+            f'<animate attributeName="width" values="0;0;{ART_W};{ART_W};0" '
+            f'keyTimes="0;{t0:.4f};{t1:.4f};{t_hold:.2f};1" '
+            f'dur="{cycle:.2f}s" repeatCount="indefinite"/></rect></clipPath>'
         )
         parts.append(f'<g clip-path="url(#r{ry})">{text}</g>')
         parts.append(
-            f'<rect y="{row_y + 1:.1f}" width="{CELL_W}" height="{CELL_H - 2}" fill="{CURSOR}" opacity="0">'
-            f'<animate attributeName="x" from="{PAD}" to="{PAD + ART_W}" begin="{delay:.3f}s" '
-            f'dur="{ROW_DUR:.2f}s" fill="freeze"/>'
-            f'<set attributeName="opacity" to="0.85" begin="{delay:.3f}s"/>'
-            f'<set attributeName="opacity" to="0" begin="{delay + ROW_DUR:.3f}s"/></rect>'
+            f'<rect y="{row_y + 1:.1f}" width="{CELL_W}" height="{CELL_H - 2}" fill="#22d3ee" opacity="0">'
+            f'<animate attributeName="x" values="{PAD};{PAD};{PAD + ART_W};{PAD + ART_W};{PAD}" '
+            f'keyTimes="0;{t0:.4f};{t1:.4f};{t_hold:.2f};1" '
+            f'dur="{cycle:.2f}s" repeatCount="indefinite"/>'
+            f'<animate attributeName="opacity" values="0;0;0.9;0;0" '
+            f'keyTimes="0;{t0:.4f};{t1:.4f};{t_hold:.2f};1" '
+            f'dur="{cycle:.2f}s" repeatCount="indefinite"/></rect>'
         )
 
     status_line_y = TITLEBAR_H + ART_H + PAD * 0.35
