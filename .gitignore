@@ -5,4 +5,5 @@ __pycache__/
 source-photo.jpg
 source-photo.png
 ascii-preview.png
+ascii-preview.txt
 *.egg-info/

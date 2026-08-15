@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="./esquire-banner.svg" width="860" alt="esquire0169 — looping gradient" />
+<img src="./ascii-portrait.svg" width="860" alt="ASCII portrait — esquire0169" />
 
 <br>
 <br>
