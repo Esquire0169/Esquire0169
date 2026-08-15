@@ -1,0 +1,23 @@
+"""Shared identity for every generated SVG."""
+
+USERNAME = "Esquire0169"
+PROMPT_HOST = "esquire@github"
+DISPLAY_NAME = "Dmitrij Nikitin"
+GITHUB_URL = "https://github.com/Esquire0169"
+
+# GitHub-dark chrome, cyan accent (motion / studio, not default blue).
+BG = "#0d1117"
+BG2 = "#111722"
+FRAME = "#30363d"
+TITLE_TEXT = "#7d8590"
+INK = "#c9d1d9"
+CURSOR = "#c9d1d9"
+ACCENT = "#22d3ee"
+GREEN = "#39d353"
+GOLD = "#f2cc60"
+KEY = "#79c0ff"
+MUTED = "#7d8590"
+TEXT = "#e6edf3"
+HEATMAP_FRAME = "#1f6feb"
+HEATMAP_BG = "#0a0e14"
+HEATMAP_BG2 = "#0d1420"
