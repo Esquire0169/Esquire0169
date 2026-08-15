@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-ASCII mark from the Plix lockup. Glyphs are "plix"; a looping
-"Plix Group" gradient banner sits under the art.
+ASCII mark from the Plix lockup. A looping ASCII "PLIX GROUP"
+ticker sits under the art, painted with the same plix glyphs.
 
     python scripts/make_ascii_svg.py
     python scripts/make_ascii_svg.py path/to/photo.png ascii-portrait.svg
@@ -22,14 +22,29 @@ PHOTO = sys.argv[1] if len(sys.argv) > 1 else os.path.join(HERE, "..", "source-p
 OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, "..", "ascii-portrait.svg")
 
 HANDLE = "plix"
-BANNER = "Plix Group"
+BANNER = "PLIX GROUP"
 COLS = 102
 CELL_W = 8
 CELL_H = 15
 PAD = 20
 TITLEBAR_H = 30
-BANNER_H = 56
 STATUS_H = 34
+
+# 5-row block font. On-pixels become "plix" glyphs so the ticker
+# matches the lockup above it.
+GLYPHS = {
+    "P": ["#####", "#   #", "#####", "#    ", "#    "],
+    "L": ["#    ", "#    ", "#    ", "#    ", "#####"],
+    "I": ["###", " # ", " # ", " # ", "###"],
+    "X": ["#   #", " # # ", "  #  ", " # # ", "#   #"],
+    "G": [" ####", "#    ", "#  ##", "#   #", " ### "],
+    "R": ["#####", "#   #", "#####", "#  # ", "#   #"],
+    "O": [" ### ", "#   #", "#   #", "#   #", " ### "],
+    "U": ["#   #", "#   #", "#   #", "#   #", " ### "],
+    " ": ["  ", "  ", "  ", "  ", "  "],
+}
+GLYPH_H = 5
+BANNER_GAP = "    "
 
 # Thin → dense, only letters from the mark.
 RAMP = " ilxpg"
@@ -96,6 +111,18 @@ def to_rows(im: Image.Image) -> list[str]:
     return [pad, *rows, pad]
 
 
+def banner_rows() -> list[str]:
+    glyphs = [GLYPHS[ch] for ch in BANNER]
+    lines = []
+    for y in range(GLYPH_H):
+        raw = "  ".join(g[y] for g in glyphs) + BANNER_GAP
+        painted = []
+        for x, ch in enumerate(raw):
+            painted.append(HANDLE[x % len(HANDLE)] if ch == "#" else " ")
+        lines.append("".join(painted))
+    return lines
+
+
 def gradient_def() -> str:
     return (
         '<linearGradient id="ink" x1="-100%" y1="0" x2="0%" y2="0">'
@@ -114,19 +141,19 @@ def gradient_def() -> str:
     )
 
 
-def emit(rows_txt: list[str]) -> str:
+def emit(rows_txt: list[str], ticker: list[str]) -> str:
     n = len(rows_txt)
     art_w = COLS * CELL_W
     art_h = n * CELL_H
+    banner_h = GLYPH_H * CELL_H + 12
     canvas_w = art_w + PAD * 2
-    canvas_h = TITLEBAR_H + art_h + BANNER_H + STATUS_H
+    canvas_h = TITLEBAR_H + art_h + banner_h + STATUS_H
     font_size = CELL_H * 0.86
     art_top = TITLEBAR_H + 4
     banner_y = TITLEBAR_H + art_h
-    word = html.escape(BANNER)
-    cell_w = 380
-    gap = 80
-    unit = cell_w + gap
+    unit_cols = len(ticker[0])
+    unit = unit_cols * CELL_W
+    copies = 4
 
     parts = [
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{canvas_w}" height="{canvas_h}" '
@@ -137,7 +164,7 @@ def emit(rows_txt: list[str]) -> str:
         f'<stop offset="0" stop-color="{BG2}"/><stop offset="1" stop-color="{BG}"/>'
         "</linearGradient>",
         gradient_def(),
-        f'<clipPath id="banner"><rect x="0" y="{banner_y}" width="{canvas_w}" height="{BANNER_H}"/></clipPath>',
+        f'<clipPath id="banner"><rect x="0" y="{banner_y}" width="{canvas_w}" height="{banner_h}"/></clipPath>',
         "</defs>",
         f'<rect width="{canvas_w}" height="{canvas_h}" rx="12" fill="url(#bg)"/>',
         f'<rect x="0.5" y="0.5" width="{canvas_w - 1}" height="{canvas_h - 1}" rx="12" '
@@ -164,21 +191,24 @@ def emit(rows_txt: list[str]) -> str:
     parts.append(
         f'<line x1="0" y1="{banner_y}" x2="{canvas_w}" y2="{banner_y}" stroke="{FRAME}"/>'
     )
-    by = banner_y + BANNER_H * 0.72
     parts.append('<g clip-path="url(#banner)"><g>')
     parts.append(
         f'<animateTransform attributeName="transform" type="translate" '
-        f'from="0 0" to="-{unit} 0" dur="8s" repeatCount="indefinite"/>'
+        f'from="0 0" to="-{unit} 0" dur="12s" repeatCount="indefinite"/>'
     )
-    for i in range(4):
-        parts.append(
-            f'<text xml:space="preserve" x="{PAD + i * unit}" y="{by:.1f}" fill="url(#ink)" '
-            f'font-size="36" font-weight="700" letter-spacing="4" '
-            f'textLength="{cell_w}" lengthAdjust="spacing">{word}</text>'
-        )
+    ticker_top = banner_y + 8
+    for i in range(copies):
+        x0 = PAD + i * unit
+        for ry, line in enumerate(ticker):
+            y = ticker_top + ry * CELL_H + CELL_H * 0.74
+            parts.append(
+                f'<text xml:space="preserve" x="{x0}" y="{y:.1f}" fill="url(#ink)" '
+                f'font-size="{font_size:.1f}" textLength="{unit_cols * CELL_W}" '
+                f'lengthAdjust="spacing">{html.escape(line)}</text>'
+            )
     parts.append("</g></g>")
 
-    status_y = banner_y + BANNER_H
+    status_y = banner_y + banner_h
     parts.append(
         f'<line x1="0" y1="{status_y}" x2="{canvas_w}" y2="{status_y}" stroke="{FRAME}"/>'
     )
@@ -201,10 +231,11 @@ if __name__ == "__main__":
     if not os.path.isfile(PHOTO):
         sys.exit(f"missing photo: {PHOTO}")
     rows = to_rows(load_photo(PHOTO))
-    svg = emit(rows)
+    ticker = banner_rows()
+    svg = emit(rows, ticker)
     with open(OUT, "w") as f:
         f.write(svg)
     preview = os.path.join(HERE, "..", "ascii-preview.txt")
     with open(preview, "w") as f:
-        f.write("\n".join(rows) + "\n")
+        f.write("\n".join(rows) + "\n\n--- ticker ---\n" + "\n".join(ticker) + "\n")
     print("wrote", OUT, len(svg), "bytes;", COLS, "x", len(rows))
