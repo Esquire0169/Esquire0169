@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
 """
-ASCII portrait that types itself in, then freezes.
-
-Default: Lambert-shaded 3D bust (head / neck / shoulders) — the look from
-Avi's terminal profile, without needing a photo.
-Optional: pass a prepped grayscale image as argv[1] for a real portrait later.
+ASCII cube mark that stays on screen, with an infinite cyan–violet–green
+gradient running through the glyphs.
 
     python scripts/make_ascii_svg.py
     python scripts/make_ascii_svg.py source-prepped.png ascii-portrait.svg
-    STATIC=1 python scripts/make_ascii_svg.py
 """
 from __future__ import annotations
 
@@ -16,38 +12,29 @@ import html
 import os
 import sys
 
-from PIL import Image, ImageEnhance, ImageOps
+from PIL import Image, ImageEnhance, ImageFilter, ImageDraw
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from config import BG, BG2, CURSOR, DISPLAY_NAME, FRAME, INK, PROMPT_HOST, TITLE_TEXT
+from config import BG, BG2, DISPLAY_NAME, FRAME, INK, PROMPT_HOST, TITLE_TEXT
 
 OUT = sys.argv[2] if len(sys.argv) > 2 else os.path.join(HERE, "..", "ascii-portrait.svg")
 PHOTO = sys.argv[1] if len(sys.argv) > 1 else None
 
 COLS = 92
-ROWS = 52
+ROWS = 36
 CELL_W = 8
 CELL_H = 15
 RAMP = " .`:-=+*cs#%@"
-WHITE_FLOOR = 0.88
+WHITE_FLOOR = 0.90
 GAMMA = 1.05
 CONTRAST = 1.12
 
 PAD = 20
 TITLEBAR_H = 30
 STATUS_H = 30
-ART_W = COLS * CELL_W
-ART_H = ROWS * CELL_H
-CANVAS_W = ART_W + PAD * 2
-CANVAS_H = TITLEBAR_H + ART_H + STATUS_H + PAD
 
-ROW_DUR = 0.09
-STAGGER = 0.09
-STATIC = bool(os.environ.get("STATIC"))
-
-
-# Horizontally symmetric 5x5 — same mark as the avatar.
+# Same 5×5 as the avatar mark.
 PATTERN = [
     [1, 0, 0, 0, 1],
     [0, 0, 1, 0, 0],
@@ -64,13 +51,11 @@ def _iso_pt(i: float, j: float, k: float, origin, cw: float, ch: float):
 
 
 def draw_cubes(width: int, height: int) -> Image.Image:
-    from PIL import ImageDraw, ImageFilter
-
     img = Image.new("L", (width, height), 255)
     d = ImageDraw.Draw(img)
     n = 5
-    cw, ch = 128.0, 74.0
-    origin = (width / 2.0, height * 0.36)
+    cw, ch = 168.0, 96.0
+    origin = (width / 2.0, height * 0.42)
 
     def cube(i, j, k=0.0, h=1.15):
         t = _iso_pt(i, j, k + h, origin, cw, ch)
@@ -93,14 +78,14 @@ def draw_cubes(width: int, height: int) -> Image.Image:
             j = s - i
             if 0 <= j < n and PATTERN[j][i]:
                 cube(i - 2.0, j - 2.0)
-    return img.filter(ImageFilter.GaussianBlur(radius=0.4))
+    return img.filter(ImageFilter.GaussianBlur(radius=0.35))
 
 
 def load_source() -> Image.Image:
     if PHOTO:
         im = Image.open(PHOTO).convert("L")
         return ImageEnhance.Contrast(im).enhance(CONTRAST)
-    return draw_cubes(920, 520)
+    return draw_cubes(1100, 620)
 
 
 def to_rows(im: Image.Image) -> list[str]:
@@ -119,87 +104,73 @@ def to_rows(im: Image.Image) -> list[str]:
             idx = max(0, min(len(RAMP) - 1, idx))
             chars.append(RAMP[idx])
         rows.append("".join(chars))
+    while rows and rows[0].strip() == "":
+        rows.pop(0)
+    while rows and rows[-1].strip() == "":
+        rows.pop()
+    # Keep a single blank breathing row above/below the mark.
+    rows = [" " * COLS, *rows, " " * COLS]
     return rows
 
 
 def emit(rows_txt: list[str]) -> str:
     n = len(rows_txt)
-    type_span = (n - 1) * STAGGER + ROW_DUR
-    cycle = type_span + 2.8  # hold, then loop forever
-    sweep = ART_W + 240
+    art_w = COLS * CELL_W
+    art_h = n * CELL_H
+    canvas_w = art_w + PAD * 2
+    canvas_h = TITLEBAR_H + art_h + STATUS_H + PAD
+    sweep = art_w + 320
 
     parts = [
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{CANVAS_W}" height="{CANVAS_H}" '
-        f'viewBox="0 0 {CANVAS_W} {CANVAS_H}" font-family="ui-monospace, SFMono-Regular, '
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{canvas_w}" height="{canvas_h}" '
+        f'viewBox="0 0 {canvas_w} {canvas_h}" font-family="ui-monospace, SFMono-Regular, '
         f'Menlo, Consolas, monospace">',
         "<defs>"
         f'<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">'
         f'<stop offset="0" stop-color="{BG2}"/><stop offset="1" stop-color="{BG}"/>'
         "</linearGradient>"
-        f'<linearGradient id="ink" gradientUnits="userSpaceOnUse" x1="{PAD}" y1="0" x2="{PAD + 280}" y2="0">'
+        # Wide repeating band so the run never stops.
+        f'<linearGradient id="ink" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="{art_w}" y2="0">'
         '<stop offset="0%" stop-color="#22d3ee"/>'
-        '<stop offset="35%" stop-color="#a371f7"/>'
-        '<stop offset="70%" stop-color="#39d353"/>'
-        '<stop offset="100%" stop-color="#22d3ee"/>'
+        '<stop offset="25%" stop-color="#a371f7"/>'
+        '<stop offset="50%" stop-color="#39d353"/>'
+        '<stop offset="75%" stop-color="#22d3ee"/>'
+        '<stop offset="100%" stop-color="#a371f7"/>'
         f'<animateTransform attributeName="gradientTransform" type="translate" '
-        f'from="-{sweep} 0" to="{sweep} 0" dur="4.5s" repeatCount="indefinite"/>'
+        f'values="-{sweep} 0; {sweep} 0; -{sweep} 0" '
+        f'dur="6s" repeatCount="indefinite"/>'
         "</linearGradient>"
         "</defs>",
-        f'<rect width="{CANVAS_W}" height="{CANVAS_H}" rx="12" fill="url(#bg)"/>',
-        f'<rect x="0.5" y="0.5" width="{CANVAS_W - 1}" height="{CANVAS_H - 1}" rx="12" '
+        f'<rect width="{canvas_w}" height="{canvas_h}" rx="12" fill="url(#bg)"/>',
+        f'<rect x="0.5" y="0.5" width="{canvas_w - 1}" height="{canvas_h - 1}" rx="12" '
         f'fill="none" stroke="{FRAME}" stroke-width="1"/>',
-        f'<line x1="0" y1="{TITLEBAR_H}" x2="{CANVAS_W}" y2="{TITLEBAR_H}" stroke="{FRAME}"/>',
+        f'<line x1="0" y1="{TITLEBAR_H}" x2="{canvas_w}" y2="{TITLEBAR_H}" stroke="{FRAME}"/>',
     ]
     for i, dotcol in enumerate(["#ff5f56", "#ffbd2e", "#27c93f"]):
         parts.append(
             f'<circle cx="{PAD + i * 16}" cy="{TITLEBAR_H / 2}" r="5" fill="{dotcol}"/>'
         )
     parts.append(
-        f'<text x="{CANVAS_W / 2}" y="{TITLEBAR_H / 2 + 4}" fill="{TITLE_TEXT}" font-size="12" '
+        f'<text x="{canvas_w / 2}" y="{TITLEBAR_H / 2 + 4}" fill="{TITLE_TEXT}" font-size="12" '
         f'text-anchor="middle">{PROMPT_HOST}: ~$ ./portrait.sh --loop</text>'
     )
 
     art_top = TITLEBAR_H + PAD * 0.35
     font_size = CELL_H * 0.86
-    fill = "url(#ink)"
+    # Always visible — the gradient is what runs, not a typewriter wipe.
     for ry, line in enumerate(rows_txt):
         y = art_top + ry * CELL_H + CELL_H * 0.74
-        row_y = art_top + ry * CELL_H
-        delay = ry * STAGGER
-        t0 = max(0.002, delay / cycle)
-        t1 = min(0.84, max(t0 + 0.004, (delay + ROW_DUR) / cycle))
-        t_hold = 0.88
         safe = html.escape(line)
-        text = (
-            f'<text xml:space="preserve" x="{PAD}" y="{y:.1f}" fill="{fill}" '
-            f'font-size="{font_size:.1f}" textLength="{ART_W}" lengthAdjust="spacing">'
+        parts.append(
+            f'<text xml:space="preserve" x="{PAD}" y="{y:.1f}" fill="url(#ink)" '
+            f'font-size="{font_size:.1f}" textLength="{art_w}" lengthAdjust="spacing">'
             f"{safe}</text>"
         )
-        if STATIC:
-            parts.append(text)
-            continue
-        parts.append(
-            f'<clipPath id="r{ry}">'
-            f'<rect x="{PAD}" y="{row_y:.1f}" height="{CELL_H}" width="0">'
-            f'<animate attributeName="width" values="0;0;{ART_W};{ART_W};0" '
-            f'keyTimes="0;{t0:.4f};{t1:.4f};{t_hold:.2f};1" '
-            f'dur="{cycle:.2f}s" repeatCount="indefinite"/></rect></clipPath>'
-        )
-        parts.append(f'<g clip-path="url(#r{ry})">{text}</g>')
-        parts.append(
-            f'<rect y="{row_y + 1:.1f}" width="{CELL_W}" height="{CELL_H - 2}" fill="#22d3ee" opacity="0">'
-            f'<animate attributeName="x" values="{PAD};{PAD};{PAD + ART_W};{PAD + ART_W};{PAD}" '
-            f'keyTimes="0;{t0:.4f};{t1:.4f};{t_hold:.2f};1" '
-            f'dur="{cycle:.2f}s" repeatCount="indefinite"/>'
-            f'<animate attributeName="opacity" values="0;0;0.9;0;0" '
-            f'keyTimes="0;{t0:.4f};{t1:.4f};{t_hold:.2f};1" '
-            f'dur="{cycle:.2f}s" repeatCount="indefinite"/></rect>'
-        )
 
-    status_line_y = TITLEBAR_H + ART_H + PAD * 0.35
+    status_line_y = TITLEBAR_H + art_h + PAD * 0.35
     status_y = status_line_y + 19
     parts.append(
-        f'<line x1="0" y1="{status_line_y:.1f}" x2="{CANVAS_W}" y2="{status_line_y:.1f}" '
+        f'<line x1="0" y1="{status_line_y:.1f}" x2="{canvas_w}" y2="{status_line_y:.1f}" '
         f'stroke="{FRAME}"/>'
     )
     prefix = f"{PROMPT_HOST}:~$ whoami "
@@ -222,4 +193,4 @@ if __name__ == "__main__":
     svg = emit(rows)
     with open(OUT, "w") as f:
         f.write(svg)
-    print("wrote", OUT, len(svg), "bytes;", CANVAS_W, "x", CANVAS_H)
+    print("wrote", OUT, len(svg), "bytes")
