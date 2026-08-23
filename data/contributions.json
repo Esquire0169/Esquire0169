@@ -1,22 +1,22 @@
 {
   "username": "Esquire0169",
-  "generated_at": "2026-08-22T06:57:37Z",
+  "generated_at": "2026-08-23T06:59:28Z",
   "range": {
-    "start": "2025-08-17",
+    "start": "2025-08-24",
+    "end": "2026-08-23"
+  },
+  "total_contributions": 102,
+  "active_days": 20,
+  "avg_per_active_day": 5.1,
+  "current_streak": {
+    "length": 8,
+    "start": "2026-08-15",
     "end": "2026-08-22"
   },
-  "total_contributions": 101,
-  "active_days": 19,
-  "avg_per_active_day": 5.3,
-  "current_streak": {
-    "length": 7,
-    "start": "2026-08-15",
-    "end": "2026-08-21"
-  },
   "longest_streak": {
-    "length": 7,
+    "length": 8,
     "start": "2026-08-15",
-    "end": "2026-08-21"
+    "end": "2026-08-22"
   },
   "best_day": {
     "date": "2026-08-15",
@@ -73,38 +73,10 @@
     },
     {
       "month": "2026-08",
-      "total": 39
+      "total": 40
     }
   ],
   "days": [
-    {
-      "date": "2025-08-17",
-      "count": 0
-    },
-    {
-      "date": "2025-08-18",
-      "count": 0
-    },
-    {
-      "date": "2025-08-19",
-      "count": 0
-    },
-    {
-      "date": "2025-08-20",
-      "count": 0
-    },
-    {
-      "date": "2025-08-21",
-      "count": 0
-    },
-    {
-      "date": "2025-08-22",
-      "count": 0
-    },
-    {
-      "date": "2025-08-23",
-      "count": 0
-    },
     {
       "date": "2025-08-24",
       "count": 0
@@ -1559,6 +1531,10 @@
     },
     {
       "date": "2026-08-22",
+      "count": 1
+    },
+    {
+      "date": "2026-08-23",
       "count": 0
     }
   ]
